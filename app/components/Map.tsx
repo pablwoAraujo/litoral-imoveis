@@ -5,12 +5,14 @@ import maplibregl from "maplibre-gl";
 import scBoundary from "../data/sc-boundary.json";
 import gaivotaBoundary from "../data/gaivota-boundary.json";
 import lagoinhasBoundary from "../data/lagoinhas-boundary.json";
+import ruasGeoJSON from "../data/ruas.json";
 
 interface MapProps {
   styleId: "dark" | "light" | "satellite";
   showSC: boolean;
   showGaivota: boolean;
   showLagoinhas: boolean;
+  showAllStreets: boolean;
 }
 
 // Balneário Gaivota central coordinates
@@ -48,6 +50,25 @@ const lagoinhasGeoJSON = {
     geometry: f.geometry,
     properties: {}
   }))
+};
+
+// Convert all city streets features to valid GeoJSON FeatureCollection
+const ruasGeoJSONData = {
+  type: "FeatureCollection" as const,
+  features: (ruasGeoJSON.features || []).map((f: any, idx: number) => {
+    const id = f.id || f.properties?.["@id"] || `rua-${idx}`;
+    return {
+      type: "Feature" as const,
+      id: id,
+      geometry: f.geometry as any,
+      properties: {
+        id: id,
+        name: f.properties?.name || "",
+        highway: f.properties?.highway || "",
+        surface: f.properties?.surface || ""
+      }
+    };
+  })
 };
 
 const MAP_STYLES = {
@@ -97,10 +118,10 @@ const MAP_STYLES = {
       "satellite": {
         type: "raster" as const,
         tiles: [
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
         ],
         tileSize: 256,
-        attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+        attribution: "Tiles &copy; Google"
       }
     },
     layers: [
@@ -109,13 +130,19 @@ const MAP_STYLES = {
         type: "raster" as const,
         source: "satellite",
         minzoom: 0,
-        maxzoom: 19
+        maxzoom: 20
       }
     ]
   }
 };
 
-export default function Map({ styleId, showSC, showGaivota, showLagoinhas }: MapProps) {
+export default function Map({
+  styleId,
+  showSC,
+  showGaivota,
+  showLagoinhas,
+  showAllStreets
+}: MapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerGaivotaRef = useRef<maplibregl.Marker | null>(null);
@@ -126,6 +153,8 @@ export default function Map({ styleId, showSC, showGaivota, showLagoinhas }: Map
   const showSCRef = useRef(showSC);
   const showGaivotaRef = useRef(showGaivota);
   const showLagoinhasRef = useRef(showLagoinhas);
+  const showAllStreetsRef = useRef(showAllStreets);
+  const styleIdRef = useRef(styleId);
 
   useEffect(() => {
     showSCRef.current = showSC;
@@ -138,6 +167,14 @@ export default function Map({ styleId, showSC, showGaivota, showLagoinhas }: Map
   useEffect(() => {
     showLagoinhasRef.current = showLagoinhas;
   }, [showLagoinhas]);
+
+  useEffect(() => {
+    showAllStreetsRef.current = showAllStreets;
+  }, [showAllStreets]);
+
+  useEffect(() => {
+    styleIdRef.current = styleId;
+  }, [styleId]);
 
   // Initialize Map
   useEffect(() => {
@@ -263,6 +300,196 @@ export default function Map({ styleId, showSC, showGaivota, showLagoinhas }: Map
             "line-dasharray": [3, 2], // Dashed boundary
             "line-opacity": 0.8
           }
+        });
+      }
+
+
+
+      // 5. All City Streets (ruas.geojson)
+      if (!map.getSource("ruas-completo")) {
+        map.addSource("ruas-completo", {
+          type: "geojson",
+          data: ruasGeoJSONData
+        });
+
+        // Background casing for neon/contrast effect
+        map.addLayer({
+          id: "ruas-completo-casing",
+          type: "line",
+          source: "ruas-completo",
+          layout: {
+            visibility: showAllStreetsRef.current ? "visible" : "none",
+            "line-join": "round",
+            "line-cap": "round"
+          },
+          paint: {
+            "line-color": styleIdRef.current === "light" ? "#cbd5e1" : "#0284c7", // slate-300 or sky-600
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              11, 1,
+              14, 2.5,
+              18, 5
+            ],
+            "line-opacity": styleIdRef.current === "light" ? 0.15 : 0.25
+          }
+        });
+
+        // Main line layer
+        map.addLayer({
+          id: "ruas-completo-layer",
+          type: "line",
+          source: "ruas-completo",
+          layout: {
+            visibility: showAllStreetsRef.current ? "visible" : "none",
+            "line-join": "round",
+            "line-cap": "round"
+          },
+          paint: {
+            "line-color": styleIdRef.current === "light"
+              ? "#475569" // slate-600
+              : styleIdRef.current === "dark"
+                ? "#38bdf8" // sky-400
+                : "#2dd4bf", // teal-400
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              11, 0.5,
+              14, 1.2,
+              18, 3
+            ],
+            "line-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              11, 0.3,
+              14, 0.7,
+              18, 0.9
+            ]
+          }
+        });
+
+        // Hover layer
+        map.addLayer({
+          id: "ruas-completo-hover",
+          type: "line",
+          source: "ruas-completo",
+          filter: ["==", "id", ""],
+          layout: {
+            visibility: showAllStreetsRef.current ? "visible" : "none",
+            "line-join": "round",
+            "line-cap": "round"
+          },
+          paint: {
+            "line-color": "#f59e0b", // Amber/Gold
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              11, 1.5,
+              14, 3.5,
+              18, 7
+            ],
+            "line-opacity": 0.95
+          }
+        });
+
+        // Interactive states
+        map.on("mouseenter", "ruas-completo-layer", () => {
+          if (showAllStreetsRef.current) {
+            map.getCanvas().style.cursor = "pointer";
+          }
+        });
+
+        map.on("mousemove", "ruas-completo-layer", (e) => {
+          if (!showAllStreetsRef.current) return;
+          const features = map.queryRenderedFeatures(e.point, { layers: ["ruas-completo-layer"] });
+          if (features.length > 0) {
+            const featId = features[0].properties?.id || "";
+            map.setFilter("ruas-completo-hover", ["==", "id", featId]);
+          } else {
+            map.setFilter("ruas-completo-hover", ["==", "id", ""]);
+          }
+        });
+
+        map.on("mouseleave", "ruas-completo-layer", () => {
+          map.getCanvas().style.cursor = "";
+          map.setFilter("ruas-completo-hover", ["==", "id", ""]);
+        });
+
+        map.on("click", "ruas-completo-layer", (e) => {
+          if (!showAllStreetsRef.current) return;
+          const features = map.queryRenderedFeatures(e.point, { layers: ["ruas-completo-layer"] });
+          if (!features.length) return;
+          const feature = features[0];
+          
+          const rawName = feature.properties?.name;
+          const name = rawName ? rawName : "Rua sem denominação";
+          const rawHighway = feature.properties?.highway || "residential";
+          const rawSurface = feature.properties?.surface || "unpaved";
+
+          const highwayTypes: Record<string, string> = {
+            motorway: "Rodovia principal",
+            trunk: "Via expressa",
+            primary: "Via primária",
+            secondary: "Avenida secundária",
+            tertiary: "Rua terciária",
+            residential: "Rua residencial",
+            unclassified: "Via local",
+            service: "Via de serviço",
+            living_street: "Via de convivência",
+            pedestrian: "Calçadão de pedestres",
+            track: "Caminho de terra / Trilha",
+            path: "Trilha",
+            footway: "Passagem de pedestres"
+          };
+          const highwayLabel = highwayTypes[rawHighway] || `Via (${rawHighway})`;
+
+          const surfaceTypes: Record<string, string> = {
+            asphalt: "Asfalto",
+            paved: "Pavimentada",
+            unpaved: "Sem pavimentação (Terra)",
+            compacted: "Terra batida",
+            gravel: "Cascalho",
+            grass: "Grama/Areia",
+            sand: "Areia",
+            paving_stones: "Lajota/Paralelepípedo",
+            cobblestone: "Paralelepípedo",
+            concrete: "Concreto"
+          };
+          const surfaceLabel = surfaceTypes[rawSurface] || `Pavimento (${rawSurface})`;
+
+          const osmId = feature.properties?.id || "N/A";
+          const themeColor = styleIdRef.current === "light" ? "#1e293b" : "#38bdf8";
+
+          new maplibregl.Popup({ className: "custom-popup-box", closeButton: true })
+            .setLngLat(e.lngLat)
+            .setHTML(`
+              <div class="p-2 font-sans select-none min-w-[200px]">
+                <div class="text-[9px] uppercase font-bold tracking-wider mb-1" style="color: ${themeColor}">
+                  Informações do Logradouro
+                </div>
+                <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm leading-tight mb-2">
+                  ${name}
+                </h3>
+                <div class="flex flex-col gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-slate-400">🛣️</span>
+                    <span><strong>Tipo:</strong> ${highwayLabel}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-slate-400">⛰️</span>
+                    <span><strong>Pavimento:</strong> ${surfaceLabel}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 border-t border-slate-200/50 dark:border-slate-800/50 pt-1.5 mt-1 text-[9px] text-slate-400">
+                    <span>OSM ID: ${osmId}</span>
+                  </div>
+                </div>
+              </div>
+            `)
+            .addTo(map);
         });
       }
     });
@@ -415,6 +642,23 @@ export default function Map({ styleId, showSC, showGaivota, showLagoinhas }: Map
       markerLagoinhasRef.current = null;
     };
   }, [mapLoaded]);
+
+
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (map.getLayer("ruas-completo-layer")) {
+      map.setLayoutProperty("ruas-completo-layer", "visibility", showAllStreets ? "visible" : "none");
+    }
+    if (map.getLayer("ruas-completo-casing")) {
+      map.setLayoutProperty("ruas-completo-casing", "visibility", showAllStreets ? "visible" : "none");
+    }
+    if (map.getLayer("ruas-completo-hover")) {
+      map.setLayoutProperty("ruas-completo-hover", "visibility", showAllStreets ? "visible" : "none");
+    }
+  }, [showAllStreets, mapLoaded]);
 
   return (
     <div className="relative w-full h-full">

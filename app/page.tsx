@@ -16,9 +16,10 @@ const Map = dynamic(() => import("./components/Map"), {
 
 export default function Home() {
   const [mapStyle, setMapStyle] = useState<"dark" | "light" | "satellite">("dark");
-  const [showSC, setShowSC] = useState(true);
+  const [showSC, setShowSC] = useState(false); // Default SC borders to false so the user focuses on the city
   const [showGaivota, setShowGaivota] = useState(true);
   const [showLagoinhas, setShowLagoinhas] = useState(true);
+  const [showAllStreets, setShowAllStreets] = useState(true);
 
   const isDarkUI = mapStyle === "dark" || mapStyle === "satellite";
 
@@ -31,6 +32,7 @@ export default function Home() {
           showSC={showSC}
           showGaivota={showGaivota}
           showLagoinhas={showLagoinhas}
+          showAllStreets={showAllStreets}
         />
       </div>
 
@@ -121,6 +123,26 @@ export default function Home() {
               </div>
               <span className="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
                 B. Lagoinha - Bairro (Ciano)
+              </span>
+            </label>
+
+            {/* Todas as Ruas Toggle */}
+            <label className="flex items-center gap-2.5 cursor-pointer group select-none">
+              <input
+                type="checkbox"
+                checked={showAllStreets}
+                onChange={() => setShowAllStreets(!showAllStreets)}
+                className="hidden peer"
+              />
+              <div className="w-4 h-4 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center peer-checked:bg-sky-500 peer-checked:border-sky-500 transition-all duration-150">
+                {showAllStreets && (
+                  <svg className="w-2.5 h-2.5 text-white fill-current" viewBox="0 0 20 20">
+                    <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                Todas as Ruas (Malha Urbana)
               </span>
             </label>
           </div>

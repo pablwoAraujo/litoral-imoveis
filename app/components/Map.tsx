@@ -13,6 +13,9 @@ interface MapProps {
   showGaivota: boolean;
   showLagoinhas: boolean;
   showAllStreets: boolean;
+  showLotes: boolean;
+  lotesOpacity: number;
+  lotesRotation: number;
 }
 
 // Balneário Gaivota central coordinates
@@ -20,6 +23,48 @@ const GAIVOTA_COORDS: [number, number] = [-49.5809, -29.1553];
 
 // Balneário Lagoinha coordinates
 const LAGOINHAS_COORDS: [number, number] = [-49.5217, -29.0926];
+
+// Helper to compute coordinates of the lotes.png bounding box rotated around its center
+const getRotatedCoordinates = (angleDegrees: number): [[number, number], [number, number], [number, number], [number, number]] => {
+  const lonMin = -49.5358;
+  const lonMax = -49.5080;
+  const latMin = -29.1051;
+  const latMax = -29.0800;
+
+  const cLon = (lonMin + lonMax) / 2;
+  const cLat = (latMin + latMax) / 2;
+
+  // Scale longitude factor based on latitude (for Mercator projections)
+  const latRad = cLat * Math.PI / 180;
+  const cosLat = Math.cos(latRad);
+
+  const angleRad = angleDegrees * Math.PI / 180;
+  const sin = Math.sin(angleRad);
+  const cos = Math.cos(angleRad);
+
+  const corners = [
+    { lon: lonMin, lat: latMax }, // Top-Left
+    { lon: lonMax, lat: latMax }, // Top-Right
+    { lon: lonMax, lat: latMin }, // Bottom-Right
+    { lon: lonMin, lat: latMin }  // Bottom-Left
+  ];
+
+  const rotated = corners.map(p => {
+    const dx = (p.lon - cLon) * cosLat;
+    const dy = p.lat - cLat;
+
+    // Rotate clockwise (positive degrees rotate clockwise)
+    const rx = dx * cos + dy * sin;
+    const ry = -dx * sin + dy * cos;
+
+    return [
+      (rx / cosLat) + cLon,
+      ry + cLat
+    ] as [number, number];
+  });
+
+  return [rotated[0], rotated[1], rotated[2], rotated[3]];
+};
 
 // Convert boundary features to valid GeoJSON FeatureCollection
 const scGeoJSON = {
@@ -141,7 +186,10 @@ export default function Map({
   showSC,
   showGaivota,
   showLagoinhas,
-  showAllStreets
+  showAllStreets,
+  showLotes,
+  lotesOpacity,
+  lotesRotation
 }: MapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -154,6 +202,9 @@ export default function Map({
   const showGaivotaRef = useRef(showGaivota);
   const showLagoinhasRef = useRef(showLagoinhas);
   const showAllStreetsRef = useRef(showAllStreets);
+  const showLotesRef = useRef(showLotes);
+  const lotesOpacityRef = useRef(lotesOpacity);
+  const lotesRotationRef = useRef(lotesRotation);
   const styleIdRef = useRef(styleId);
 
   useEffect(() => {
@@ -171,6 +222,18 @@ export default function Map({
   useEffect(() => {
     showAllStreetsRef.current = showAllStreets;
   }, [showAllStreets]);
+
+  useEffect(() => {
+    showLotesRef.current = showLotes;
+  }, [showLotes]);
+
+  useEffect(() => {
+    lotesOpacityRef.current = lotesOpacity;
+  }, [lotesOpacity]);
+
+  useEffect(() => {
+    lotesRotationRef.current = lotesRotation;
+  }, [lotesRotation]);
 
   useEffect(() => {
     styleIdRef.current = styleId;
@@ -303,9 +366,28 @@ export default function Map({
         });
       }
 
+      // 5. Lotes Image Overlay (Underneath the street network)
+      if (!map.getSource("lotes-source")) {
+        map.addSource("lotes-source", {
+          type: "image",
+          url: "/lotes.png",
+          coordinates: getRotatedCoordinates(lotesRotationRef.current)
+        });
 
+        map.addLayer({
+          id: "lotes-layer",
+          type: "raster",
+          source: "lotes-source",
+          layout: {
+            visibility: showLotesRef.current ? "visible" : "none"
+          },
+          paint: {
+            "raster-opacity": lotesOpacityRef.current
+          }
+        });
+      }
 
-      // 5. All City Streets (ruas.geojson)
+      // 6. All City Streets (ruas.geojson)
       if (!map.getSource("ruas-completo")) {
         map.addSource("ruas-completo", {
           type: "geojson",
@@ -492,6 +574,7 @@ export default function Map({
             .addTo(map);
         });
       }
+
     });
 
     map.on("load", () => {
@@ -659,6 +742,34 @@ export default function Map({
       map.setLayoutProperty("ruas-completo-hover", "visibility", showAllStreets ? "visible" : "none");
     }
   }, [showAllStreets, mapLoaded]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (map.getLayer("lotes-layer")) {
+      map.setLayoutProperty("lotes-layer", "visibility", showLotes ? "visible" : "none");
+    }
+  }, [showLotes, mapLoaded]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (map.getLayer("lotes-layer")) {
+      map.setPaintProperty("lotes-layer", "raster-opacity", lotesOpacity);
+    }
+  }, [lotesOpacity, mapLoaded]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const source: any = map.getSource("lotes-source");
+    if (source && typeof source.setCoordinates === "function") {
+      source.setCoordinates(getRotatedCoordinates(lotesRotation));
+    }
+  }, [lotesRotation, mapLoaded]);
 
   return (
     <div className="relative w-full h-full">

@@ -20,6 +20,9 @@ export default function Home() {
   const [showGaivota, setShowGaivota] = useState(true);
   const [showLagoinhas, setShowLagoinhas] = useState(true);
   const [showAllStreets, setShowAllStreets] = useState(true);
+  const [showLotes, setShowLotes] = useState(false);
+  const [lotesOpacity, setLotesOpacity] = useState(0.7);
+  const [lotesRotation, setLotesRotation] = useState(-52);
 
   const isDarkUI = mapStyle === "dark" || mapStyle === "satellite";
 
@@ -33,6 +36,9 @@ export default function Home() {
           showGaivota={showGaivota}
           showLagoinhas={showLagoinhas}
           showAllStreets={showAllStreets}
+          showLotes={showLotes}
+          lotesOpacity={lotesOpacity}
+          lotesRotation={lotesRotation}
         />
       </div>
 
@@ -145,6 +151,66 @@ export default function Home() {
                 Todas as Ruas (Malha Urbana)
               </span>
             </label>
+
+            {/* Imagem de Lotes Toggle */}
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-2.5 cursor-pointer group select-none">
+                <input
+                  type="checkbox"
+                  checked={showLotes}
+                  onChange={() => setShowLotes(!showLotes)}
+                  className="hidden peer"
+                />
+                <div className="w-4 h-4 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center peer-checked:bg-orange-500 peer-checked:border-orange-500 transition-all duration-150">
+                  {showLotes && (
+                    <svg className="w-2.5 h-2.5 text-white fill-current" viewBox="0 0 20 20">
+                      <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                  Lotes e Quadras (Imagem)
+                </span>
+              </label>
+
+              {showLotes && (
+                <div className="flex flex-col gap-2 mt-1.5 pl-6 bg-slate-100/50 dark:bg-slate-800/30 p-2.5 rounded-xl border border-slate-200/30 dark:border-slate-800/30">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                      <span>Opacidade</span>
+                      <span>{Math.round(lotesOpacity * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={lotesOpacity}
+                      onChange={(e) => setLotesOpacity(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                    />
+                  </div>
+
+                  <div className="h-px bg-slate-200/50 dark:bg-slate-800/50 my-0.5" />
+
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 font-bold">
+                      <span>Rotação</span>
+                      <span>{lotesRotation}°</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={lotesRotation}
+                      onChange={(e) => setLotesRotation(parseInt(e.target.value, 10))}
+                      className="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-49.5080, -29.0880],
+            [-49.5252, -29.1051],
+            [-49.5358, -29.0973],
+            [-49.5180, -29.0800],
+            [-49.5080, -29.0880]
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Balneário Lagoinha"
+      }
+    }
+  ]
+}

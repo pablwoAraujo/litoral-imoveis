@@ -1,13 +1,23 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
-import { SANTA_CATARINA_CENTER } from "../data/cities";
 import scBoundary from "../data/sc-boundary.json";
+import gaivotaBoundary from "../data/gaivota-boundary.json";
+import lagoinhasBoundary from "../data/lagoinhas-boundary.json";
 
 interface MapProps {
   styleId: "dark" | "light" | "satellite";
+  showSC: boolean;
+  showGaivota: boolean;
+  showLagoinhas: boolean;
 }
+
+// Balneário Gaivota central coordinates
+const GAIVOTA_COORDS: [number, number] = [-49.5809, -29.1553];
+
+// Balneário Lagoinha coordinates
+const LAGOINHAS_COORDS: [number, number] = [-49.5217, -29.0926];
 
 // Convert boundary features to valid GeoJSON FeatureCollection
 const scGeoJSON = {
@@ -15,6 +25,26 @@ const scGeoJSON = {
   features: scBoundary.features.map((f: any) => ({
     type: "Feature" as const,
     id: f.id,
+    geometry: f.geometry,
+    properties: {}
+  }))
+};
+
+// Convert Balneário Gaivota boundary features to valid GeoJSON FeatureCollection
+const gaivotaGeoJSON = {
+  type: "FeatureCollection" as const,
+  features: gaivotaBoundary.features.map((f: any) => ({
+    type: "Feature" as const,
+    geometry: f.geometry,
+    properties: {}
+  }))
+};
+
+// Convert Balneário Lagoinha boundary features to valid GeoJSON FeatureCollection
+const lagoinhasGeoJSON = {
+  type: "FeatureCollection" as const,
+  features: lagoinhasBoundary.features.map((f: any) => ({
+    type: "Feature" as const,
     geometry: f.geometry,
     properties: {}
   }))
@@ -85,9 +115,29 @@ const MAP_STYLES = {
   }
 };
 
-export default function Map({ styleId }: MapProps) {
+export default function Map({ styleId, showSC, showGaivota, showLagoinhas }: MapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const markerGaivotaRef = useRef<maplibregl.Marker | null>(null);
+  const markerLagoinhasRef = useRef<maplibregl.Marker | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
+
+  // Sync state variables in refs to prevent stale closure in event handlers
+  const showSCRef = useRef(showSC);
+  const showGaivotaRef = useRef(showGaivota);
+  const showLagoinhasRef = useRef(showLagoinhas);
+
+  useEffect(() => {
+    showSCRef.current = showSC;
+  }, [showSC]);
+
+  useEffect(() => {
+    showGaivotaRef.current = showGaivota;
+  }, [showGaivota]);
+
+  useEffect(() => {
+    showLagoinhasRef.current = showLagoinhas;
+  }, [showLagoinhas]);
 
   // Initialize Map
   useEffect(() => {
@@ -96,8 +146,8 @@ export default function Map({ styleId }: MapProps) {
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: MAP_STYLES[styleId],
-      center: [SANTA_CATARINA_CENTER.lng, SANTA_CATARINA_CENTER.lat],
-      zoom: SANTA_CATARINA_CENTER.zoom,
+      center: GAIVOTA_COORDS, // Focus directly on Balneário Gaivota!
+      zoom: 12, // Zoom in closer
       maxZoom: 18,
       minZoom: 4,
     });
@@ -107,37 +157,118 @@ export default function Map({ styleId }: MapProps) {
     // Add navigation controls (zoom, compass)
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
 
-    // Re-draw polygon and layers on every style/map load
+    // Re-draw SC boundary and Gaivota focus circle on style load
     map.on("style.load", () => {
+      // 1. Santa Catarina State Boundary
       if (!map.getSource("santa-catarina")) {
         map.addSource("santa-catarina", {
           type: "geojson",
           data: scGeoJSON
         });
 
-        // Add soft semi-transparent blue fill
         map.addLayer({
           id: "sc-fill",
           type: "fill",
           source: "santa-catarina",
+          layout: {
+            visibility: showSCRef.current ? "visible" : "none"
+          },
           paint: {
             "fill-color": "#3b82f6",
-            "fill-opacity": 0.05
+            "fill-opacity": 0.03
           }
         });
 
-        // Add glowing boundary line
         map.addLayer({
           id: "sc-border",
           type: "line",
           source: "santa-catarina",
+          layout: {
+            visibility: showSCRef.current ? "visible" : "none"
+          },
           paint: {
             "line-color": "#3b82f6",
-            "line-width": 2,
-            "line-opacity": 0.5
+            "line-width": 1.5,
+            "line-opacity": 0.4
           }
         });
       }
+
+      // 2. Balneário Gaivota Official Municipality Boundary Highlight
+      if (!map.getSource("gaivota-focus")) {
+        map.addSource("gaivota-focus", {
+          type: "geojson",
+          data: gaivotaGeoJSON
+        });
+
+        map.addLayer({
+          id: "gaivota-fill",
+          type: "fill",
+          source: "gaivota-focus",
+          layout: {
+            visibility: showGaivotaRef.current ? "visible" : "none"
+          },
+          paint: {
+            "fill-color": "#f59e0b", // Gold focus highlight
+            "fill-opacity": 0.18
+          }
+        });
+
+        map.addLayer({
+          id: "gaivota-border",
+          type: "line",
+          source: "gaivota-focus",
+          layout: {
+            visibility: showGaivotaRef.current ? "visible" : "none"
+          },
+          paint: {
+            "line-color": "#f59e0b",
+            "line-width": 3,
+            "line-dasharray": [4, 3], // Dashed radar focus outline
+            "line-opacity": 0.9
+          }
+        });
+      }
+
+      // 3. Balneário Lagoinha Area Demarcation (Inside the town, North border)
+      if (!map.getSource("lagoinhas-area")) {
+        map.addSource("lagoinhas-area", {
+          type: "geojson",
+          data: lagoinhasGeoJSON
+        });
+
+        map.addLayer({
+          id: "lagoinhas-fill",
+          type: "fill",
+          source: "lagoinhas-area",
+          layout: {
+            visibility: showLagoinhasRef.current ? "visible" : "none"
+          },
+          paint: {
+            "fill-color": "#06b6d4", // Cyan/ocean blue highlight
+            "fill-opacity": 0.15
+          }
+        });
+
+        map.addLayer({
+          id: "lagoinhas-border",
+          type: "line",
+          source: "lagoinhas-area",
+          layout: {
+            visibility: showLagoinhasRef.current ? "visible" : "none"
+          },
+          paint: {
+            "line-color": "#06b6d4",
+            "line-width": 2,
+            "line-dasharray": [3, 2], // Dashed boundary
+            "line-opacity": 0.8
+          }
+        });
+      }
+    });
+
+    map.on("load", () => {
+      setMapLoaded(true);
     });
 
     return () => {
@@ -153,16 +284,158 @@ export default function Map({ styleId }: MapProps) {
     map.setStyle(MAP_STYLES[styleId]);
   }, [styleId]);
 
+  // Handle dynamic visibility changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (map.getLayer("sc-fill")) {
+      map.setLayoutProperty("sc-fill", "visibility", showSC ? "visible" : "none");
+    }
+    if (map.getLayer("sc-border")) {
+      map.setLayoutProperty("sc-border", "visibility", showSC ? "visible" : "none");
+    }
+  }, [showSC, mapLoaded]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (map.getLayer("gaivota-fill")) {
+      map.setLayoutProperty("gaivota-fill", "visibility", showGaivota ? "visible" : "none");
+    }
+    if (map.getLayer("gaivota-border")) {
+      map.setLayoutProperty("gaivota-border", "visibility", showGaivota ? "visible" : "none");
+    }
+
+    if (markerGaivotaRef.current) {
+      const el = markerGaivotaRef.current.getElement();
+      el.style.display = showGaivota ? "block" : "none";
+      if (!showGaivota) {
+        markerGaivotaRef.current.getPopup()?.remove();
+      }
+    }
+  }, [showGaivota, mapLoaded]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (map.getLayer("lagoinhas-fill")) {
+      map.setLayoutProperty("lagoinhas-fill", "visibility", showLagoinhas ? "visible" : "none");
+    }
+    if (map.getLayer("lagoinhas-border")) {
+      map.setLayoutProperty("lagoinhas-border", "visibility", showLagoinhas ? "visible" : "none");
+    }
+
+    if (markerLagoinhasRef.current) {
+      const el = markerLagoinhasRef.current.getElement();
+      el.style.display = showLagoinhas ? "block" : "none";
+      if (!showLagoinhas) {
+        markerLagoinhasRef.current.getPopup()?.remove();
+      }
+    }
+  }, [showLagoinhas, mapLoaded]);
+
+  // Add Pulsing Location Pins on Balneário Gaivota & Balneário Lagoinha
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    // 1. Balneário Gaivota Center Marker
+    const elGaivota = document.createElement("div");
+    elGaivota.className = "pulse-marker";
+    elGaivota.style.setProperty("--marker-color", "#f59e0b"); // Golden pin
+    elGaivota.style.display = showGaivotaRef.current ? "block" : "none";
+
+    const popupGaivotaHTML = `
+      <div class="p-1 font-sans">
+        <div class="text-[10px] uppercase font-bold tracking-wider text-amber-600 dark:text-amber-400 mb-0.5">Foco Principal</div>
+        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-1">Balneário Gaivota</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-normal max-w-xs">Município costeiro de Santa Catarina. Destaque por suas dunas de areia fina, lagoas naturais e praias limpas.</p>
+      </div>
+    `;
+
+    const popupGaivota = new maplibregl.Popup({
+      offset: 30,
+      closeButton: false,
+      closeOnClick: false,
+      className: "custom-popup-box"
+    }).setHTML(popupGaivotaHTML);
+
+    const markerGaivota = new maplibregl.Marker({ element: elGaivota })
+      .setLngLat(GAIVOTA_COORDS)
+      .setPopup(popupGaivota)
+      .addTo(map);
+
+    markerGaivotaRef.current = markerGaivota;
+
+    // 2. Balneário Lagoinha Marker
+    const elLagoinhas = document.createElement("div");
+    elLagoinhas.className = "pulse-marker";
+    elLagoinhas.style.setProperty("--marker-color", "#06b6d4"); // Cyan pin
+    elLagoinhas.style.display = showLagoinhasRef.current ? "block" : "none";
+
+    const popupLagoinhasHTML = `
+      <div class="p-1 font-sans">
+        <div class="text-[10px] uppercase font-bold tracking-wider text-cyan-600 dark:text-cyan-400 mb-0.5">Bairro / Loteamento</div>
+        <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-1">Balneário Lagoinha</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-normal max-w-xs">Localizado no extremo norte de Balneário Gaivota, na divisa com Arroio do Silva. Conhecido por sua tranquilidade, dunas e lagoas.</p>
+      </div>
+    `;
+
+    const popupLagoinhas = new maplibregl.Popup({
+      offset: 30,
+      closeButton: false,
+      closeOnClick: false,
+      className: "custom-popup-box"
+    }).setHTML(popupLagoinhasHTML);
+
+    const markerLagoinhas = new maplibregl.Marker({ element: elLagoinhas })
+      .setLngLat(LAGOINHAS_COORDS)
+      .setPopup(popupLagoinhas)
+      .addTo(map);
+
+    markerLagoinhasRef.current = markerLagoinhas;
+
+    // Open main focus popup after map load
+    const popupTimeout = setTimeout(() => {
+      if (mapRef.current && showGaivotaRef.current) {
+        popupGaivota.addTo(map);
+      }
+    }, 1200);
+
+    return () => {
+      clearTimeout(popupTimeout);
+      markerGaivota.remove();
+      popupGaivota.remove();
+      markerLagoinhas.remove();
+      popupLagoinhas.remove();
+      markerGaivotaRef.current = null;
+      markerLagoinhasRef.current = null;
+    };
+  }, [mapLoaded]);
+
   return (
     <div className="relative w-full h-full">
       {/* Map Element */}
       <div ref={mapContainerRef} className="w-full h-full" />
 
       {/* Floating coordinates indicator (Sleek UI element) */}
-      <div className="absolute bottom-4 left-4 z-10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200/30 dark:border-slate-800/30 shadow-sm pointer-events-none">
-        <p className="text-[10px] font-mono text-slate-600 dark:text-slate-400">
-          📍 SC, BR | Lat: {SANTA_CATARINA_CENTER.lat.toFixed(4)} Lng: {SANTA_CATARINA_CENTER.lng.toFixed(4)}
-        </p>
+      <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-1 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-200/40 dark:border-slate-800/40 shadow-lg pointer-events-none">
+        {showGaivota && (
+          <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+            📍 Balneário Gaivota: Lat {GAIVOTA_COORDS[1].toFixed(4)} Lng {GAIVOTA_COORDS[0].toFixed(4)}
+          </p>
+        )}
+        {showGaivota && showLagoinhas && (
+          <div className="h-px bg-slate-200/50 dark:bg-slate-800/50 my-0.5" />
+        )}
+        {showLagoinhas && (
+          <p className="text-[10px] font-semibold text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
+            📍 Balneário Lagoinha: Lat {LAGOINHAS_COORDS[1].toFixed(4)} Lng {LAGOINHAS_COORDS[0].toFixed(4)}
+          </p>
+        )}
       </div>
     </div>
   );

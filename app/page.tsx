@@ -16,6 +16,9 @@ const Map = dynamic(() => import("./components/Map"), {
 
 export default function Home() {
   const [mapStyle, setMapStyle] = useState<"dark" | "light" | "satellite">("dark");
+  const [showSC, setShowSC] = useState(true);
+  const [showGaivota, setShowGaivota] = useState(true);
+  const [showLagoinhas, setShowLagoinhas] = useState(true);
 
   const isDarkUI = mapStyle === "dark" || mapStyle === "satellite";
 
@@ -23,7 +26,12 @@ export default function Home() {
     <div className={`relative w-screen h-screen overflow-hidden font-sans ${isDarkUI ? "dark bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-800"}`}>
       {/* Background Map Container */}
       <div className="absolute inset-0 z-0">
-        <Map styleId={mapStyle} />
+        <Map
+          styleId={mapStyle}
+          showSC={showSC}
+          showGaivota={showGaivota}
+          showLagoinhas={showLagoinhas}
+        />
       </div>
 
       {/* Floating Header / Brand Overlay */}
@@ -40,6 +48,82 @@ export default function Home() {
           <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 tracking-wider">
             Visualização Geográfica
           </p>
+        </div>
+      </div>
+
+      {/* Layer Control Panel (Below Header) */}
+      <div className="absolute top-28 left-4 z-10 w-64">
+        <div className="backdrop-blur-md bg-white/80 dark:bg-slate-900/80 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+          <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/50 pb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              Camadas do Mapa
+            </span>
+            <span className="text-[9px] font-semibold text-slate-400 dark:text-slate-500 uppercase">
+              Filtro
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            {/* Santa Catarina Toggle */}
+            <label className="flex items-center gap-2.5 cursor-pointer group select-none">
+              <input
+                type="checkbox"
+                checked={showSC}
+                onChange={() => setShowSC(!showSC)}
+                className="hidden peer"
+              />
+              <div className="w-4 h-4 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center peer-checked:bg-blue-500 peer-checked:border-blue-500 transition-all duration-150">
+                {showSC && (
+                  <svg className="w-2.5 h-2.5 text-white fill-current" viewBox="0 0 20 20">
+                    <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                Limites de SC (Azul)
+              </span>
+            </label>
+
+            {/* Balneário Gaivota Toggle */}
+            <label className="flex items-center gap-2.5 cursor-pointer group select-none">
+              <input
+                type="checkbox"
+                checked={showGaivota}
+                onChange={() => setShowGaivota(!showGaivota)}
+                className="hidden peer"
+              />
+              <div className="w-4 h-4 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center peer-checked:bg-amber-500 peer-checked:border-amber-500 transition-all duration-150">
+                {showGaivota && (
+                  <svg className="w-2.5 h-2.5 text-white fill-current" viewBox="0 0 20 20">
+                    <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                B. Gaivota - Geral (Ouro)
+              </span>
+            </label>
+
+            {/* Balneário Lagoinha Toggle */}
+            <label className="flex items-center gap-2.5 cursor-pointer group select-none">
+              <input
+                type="checkbox"
+                checked={showLagoinhas}
+                onChange={() => setShowLagoinhas(!showLagoinhas)}
+                className="hidden peer"
+              />
+              <div className="w-4 h-4 rounded border border-slate-300 dark:border-slate-700 flex items-center justify-center peer-checked:bg-cyan-500 peer-checked:border-cyan-500 transition-all duration-150">
+                {showLagoinhas && (
+                  <svg className="w-2.5 h-2.5 text-white fill-current" viewBox="0 0 20 20">
+                    <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
+                B. Lagoinha - Bairro (Ciano)
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 
